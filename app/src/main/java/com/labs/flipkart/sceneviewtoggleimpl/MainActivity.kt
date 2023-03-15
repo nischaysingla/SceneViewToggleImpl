@@ -7,6 +7,7 @@ import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.children
 import androidx.core.view.doOnDetach
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.ar.sceneform.ArCameraNode
 import com.gorisse.thomas.lifecycle.doOnDestroy
@@ -15,7 +16,9 @@ import io.github.sceneview.ar.ArSceneView
 import io.github.sceneview.ar.node.ArModelNode
 import io.github.sceneview.ar.node.ArNode
 import io.github.sceneview.ar.node.PlacementMode
-import io.github.sceneview.math.Position
+import io.github.sceneview.model.GLBLoader
+import io.github.sceneview.model.Model
+import io.github.sceneview.model.createInstance
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.utils.Color
 
@@ -23,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchFab: FloatingActionButton
     private lateinit var crossFab: FloatingActionButton
     private lateinit var frameLayout: FrameLayout
+
+    private lateinit var rfrModel: Model
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,18 +72,18 @@ class MainActivity : AppCompatActivity() {
 
                 val arModelNode = ArModelNode(PlacementMode.BEST_AVAILABLE).apply {
                     applyPoseRotation = false
-                    loadModelGlbAsync(
-                        context = this@MainActivity,
-                        glbFileLocation = "LRCFZ6CEGGHUTA4G.glb",
-                        autoAnimate = true,
-                        scaleToUnits = 1f,
-                        onError = {
-                            Log.i("<RMN>", "getArView: onError $it")
-                        },
-                        onLoaded = {
-                            Log.i("<RMN>", "getArView: onLoaded $it")
+                    doOnAttachedToScene {
+                        lifecycleScope.launchWhenResumed {
+                            if (!::rfrModel.isInitialized) {
+                                rfrModel = GLBLoader.loadModel(
+                                    context,
+                                    "https://static-assets-web.flixcart.com/arm/glb/RFRFNDEEJ28SNQPG.glb"
+                                )!!
+                            }
+                            this@apply.setModelInstance(rfrModel.createInstance())
+                            Log.i("<RMN>", "getThreeDView: $rfrModel")
                         }
-                    )
+                    }
                 }
                 addChild(arModelNode)
                 selectedNode = arModelNode
@@ -87,7 +92,6 @@ class MainActivity : AppCompatActivity() {
                 (children.getOrNull(1) as? ArNode)?.let { arNode: ArNode ->
                     if (!arNode.isAnchored) {
                         currentFrame?.hitTest()?.let {
-                            Log.i("<RMN>", "hitTest: ${it.trackable} ${it.hitPose}")
                             if (it.trackable is com.google.ar.core.Plane) {
                                 arNode.anchor = it.createAnchor()
                             }
@@ -109,21 +113,23 @@ class MainActivity : AppCompatActivity() {
                 Log.i("<RMN>", "getArView: doOnDestroy $view")
             }
             doOnDetach {
-                children.getOrNull(1)?.destroy()
+//                children.getOrNull(1)?.destroy()
             }
             addChild(
-                ModelNode(
-                    context = this@MainActivity,
-                    modelGlbFileLocation = "LRCFZ6CEGGHUTA4G.glb",
-                    scaleUnits = 0.8f,
-                    centerOrigin = Position(y = -0.3f),
-                    onError = {
-                        Log.i("<RMN>", "getArView: onError $it")
-                    },
-                    onLoaded = {
-                        Log.i("<RMN>", "getArView: onLoaded $it")
+                ModelNode().apply {
+                    doOnAttachedToScene {
+                        lifecycleScope.launchWhenResumed {
+                            if (!::rfrModel.isInitialized) {
+                                rfrModel = GLBLoader.loadModel(
+                                    context,
+                                    "LRCFZ6CEGGHUTA4G.glb"
+                                )!!
+                            }
+                            this@apply.setModelInstance(rfrModel.createInstance())
+                            Log.i("<RMN>", "getThreeDView: $rfrModel")
+                        }
                     }
-                )
+                }
             )
         }
     }
